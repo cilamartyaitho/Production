@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Production Data Entry</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+        /* ====== Global ====== */
+    body {
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      padding: 30px;
+      background: linear-gradient(135deg, #eef2f7, #f9fbfd);
+      color: #333;
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #2c3e50;
+      letter-spacing: 1px;
+    }
+
+    h3 {
+      margin-top: 40px;
+      font-size: 22px;
+      color: #34495e;
+      border-left: 5px solid #3498db;
+      padding-left: 10px;
+    }
+
+    /* ====== Form ====== */
+    form {
+      max-width: 1000px;
+      margin: auto;
+      background: #fff;
+      padding: 25px 30px;
+      border-radius: 12px;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease-in-out;
+    }
+    form:hover {
+      transform: translateY(-3px);
+    }
+
+    .field {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #2c3e50;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ccd6e0;
+      border-radius: 8px;
+      font-size: 14px;
+      background: #fafbfc;
+      transition: border 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: #3498db;
+      box-shadow: 0 0 6px rgba(52,152,219,0.4);
+      outline: none;
+    }
+
+    /* ====== Buttons ====== */
+    button {
+      margin: 12px 8px 0 0;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, #2980b9, #2471a3);
+      transform: translateY(-2px);
+    }
+
+    #addBtn {
+      background: linear-gradient(135deg, #2ecc71, #27ae60);
+    }
+    #addBtn:hover {
+      background: linear-gradient(135deg, #27ae60, #1e8449);
+    }
+
+    /* ====== Table ====== */
+    table {
+      margin-top: 25px;
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    th, td {
+      border: 1px solid #e5e9f0;
+      padding: 10px 12px;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    th {
+      background: #3498db;
+      color: white;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f9fbfd;
+    }
+    tbody tr:hover {
+      background: #ecf6fc;
+      transition: 0.2s;
+    }
+
+    /* ====== Action Buttons ====== */
+    .action-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      margin: 0 3px;
+      display: inline-block;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .action-btn:hover {
+      opacity: 0.85;
+      transform: scale(1.05);
+    }
+
+    .delete {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+    }
+    .edit {
+      background: linear-gradient(135deg, #f39c12, #d68910);
+    }
+
+  </style>
+</head>
+<body>
+  <h2>Production Data Entry</h2>
+  <form id="dataForm">
+    <div class="field">
+      <label>Select Year / Month / Day:</label>
+      <select id="year" required></select>
+      <select id="month" required>
+        <option value="">--Month--</option>
+        <option>01</option><option>02</option><option>03</option>
+        <option>04</option><option>05</option><option>06</option>
+        <option>07</option><option>08</option><option>09</option>
+        <option>10</option><option>11</option><option>12</option>
+      </select>
+      <select id="day" required></select>
+    </div>
+
+    <div id="inputs"></div>
+    <button type="button" id="addBtn" onclick="addRow()">➕ Add Entry</button>
+    <button type="button" onclick="saveExcel()">💾 Save to Excel</button>
+  </form>
+
+  <h3>📊 Live Preview</h3>
+  <table id="previewTable">
+    <thead>
+      <tr id="headerRow"></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    // Populate year dropdown
+    const yearSelect = document.getElementById("year");
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear - 5; y <= currentYear + 10; y++) {
+      const opt = document.createElement("option");
+      opt.value = y;
+      opt.text = y;
+      if (y === currentYear) opt.selected = true;
+      yearSelect.add(opt);
+    }
+
+    // Populate days
+    const daySelect = document.getElementById("day");
+    for (let i = 1; i <= 31; i++) {
+      const opt = document.createElement("option");
+      opt.value = i < 10 ? "0" + i : i;
+      opt.text = i;
+      daySelect.add(opt);
+    }
+
+    const fields = [
+      "Date",
+      "JUTE ISSUE (1)",
+      "WASTAGE CONSUME (2)",
+      "TOTAL (3)",
+      "SPINNING PROD (4)",
+      "TWISTING PROD (5)",
+      "TWISTING PACKED (6)",
+      "TWISTING LOOSE (7)",
+      "TWISTING SALE (8)",
+      "TWISTING INCREASE/DECREASE (9)",
+      "HESSAIN PROD (10)",
+      "HESSAIN PACKED (11)",
+      "HESSAIN LOOSE (12)",
+      "HESSAIN SALE (13)",
+      "HESSAIN INCREASE/DECREASE (14)",
+      "BROD LOOM/CBC PROD (A)",
+      "BROD LOOM/CBC PACKED (B)",
+      "BROD LOOM/CBC LOOSE (C)",
+      "BROD LOOM/CBC SALE (D)",
+      "BROD LOOM/CBC INCREASE/DECREASE ()",
+      "SACKING PROD (15)",
+      "SACKING PACKED (16)",
+      "SACKING LOOSE (17)",
+      "SACKING SALE (18)",
+      "SACKING INCREASE/DECREASE (19)",
+      "JUTE WEBBING PROD (20)",
+      "JUTE WEBBING PACKED (21)",
+      "JUTE WEBBING LOOSE (22)",
+      "JUTE WEBBING SALE (23)",
+      "JUTE WEBBING INCREASE/DECREASE (24)",
+      "SULZER PROD (25)",
+      "SULZER PACKED (26)",
+      "SULZER LOOSE (27)",
+      "SULZER SALE (28)",
+      "SULZER INCREASE/DECREASE (29)",
+      "SOIL SAVAR PROD (30)",
+      "SOIL SAVAR PACKED (31)",
+      "SOIL SAVAR LOOSE (32)",
+      "SOIL SAVAR SALE (33)",
+      "SOIL SAVAR INCREASE/DECREASE (34)",
+      "TOTAL (35)",
+      "WINDING WEAVING DIFF. (36)",
+      "SPOOL WINDING STOCK (37)",
+      "COP WINDING STOCK (38)",
+      "TOTAL (SPOOL+COP) (39)",
+      "INCREASE/DECREASE (40)"
+    ];
+
+    // Create inputs
+    const inputsDiv = document.getElementById("inputs");
+    fields.slice(1).forEach(f => {
+      inputsDiv.innerHTML += `
+        <div class="field">
+          <label>${f}</label>
+          <input type="text" id="${f}" />
+        </div>`;
+    });
+
+        // Excel-like navigation (Enter/↓ → next, ↑ → previous) for ALL inputs inside #inputs
+    const inputsContainer = document.getElementById("inputs");
+
+    inputsContainer.addEventListener("keydown", (e) => {
+    if (!(e.target instanceof HTMLInputElement)) return; // only handle real inputs
+
+    const inputs = Array.from(inputsContainer.querySelectorAll("input"));
+    const idx = inputs.indexOf(e.target);
+
+    if (e.key === "Enter" || e.key === "ArrowDown") {
+        e.preventDefault(); // stop form submit / number increment
+        if (idx >= 0 && idx < inputs.length - 1) inputs[idx + 1].focus();
+    } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (idx > 0) inputs[idx - 1].focus();
+    }
+    });
+
+
+    // Table headers
+    const headerRow = document.getElementById("headerRow");
+    fields.forEach(f => {
+      const th = document.createElement("th");
+      th.innerText = f;
+      headerRow.appendChild(th);
+    });
+    const actionTh = document.createElement("th");
+    actionTh.innerText = "Actions";
+    headerRow.appendChild(actionTh);
+
+    // Data storage
+    let rows = [];
+    let currentFile = "";
+    let editIndex = null;
+
+    function addRow() {
+      const year = document.getElementById("year").value;
+      const month = document.getElementById("month").value;
+      const day = document.getElementById("day").value;
+      if (!year || !month || !day) {
+        alert("Please select a valid year, month, and day!");
+        return;
+      }
+      const fileName = `PRODUCTION-${year}-${month}.xlsx`;
+
+      // reset if year/month changed
+      if (currentFile && currentFile !== fileName) {
+        if (!confirm("Month/Year changed! Start a new file?")) return;
+        rows = [];
+        document.querySelector("#previewTable tbody").innerHTML = "";
+      }
+      currentFile = fileName;
+
+      const dateStr = `${day}-${month}-${year}`;
+      const existingIndex = rows.findIndex(r => r["Date"] === dateStr);
+
+      // prevent duplicate dates
+      if (existingIndex !== -1 && editIndex === null) {
+        alert("This date already exists in the file! Use Edit instead.");
+        return;
+      }
+
+      const row = {};
+      fields.forEach(f => {
+        if (f === "Date") row[f] = dateStr;
+        else row[f] = document.getElementById(f)?.value || "";
+      });
+
+      if (editIndex !== null) {
+        rows[editIndex] = row; // update
+        editIndex = null;
+        document.getElementById("addBtn").innerText = "➕ Add Entry";
+      } else {
+        if (rows.length >= 31) {
+          alert("This file already has 31 entries (max for days in a month).");
+          return;
+        }
+        rows.push(row); // add
+      }
+
+      renderTable();
+      fields.slice(1).forEach(f => document.getElementById(f).value = "");
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector("#previewTable tbody");
+      tbody.innerHTML = "";
+      rows.forEach((r, i) => {
+        const tr = document.createElement("tr");
+        fields.forEach(f => {
+          const td = document.createElement("td");
+          td.innerText = r[f];
+          tr.appendChild(td);
+        });
+        const tdAction = document.createElement("td");
+        tdAction.innerHTML = `
+          <span class="action-btn edit" onclick="editRow(${i})">✏️ Edit</span>
+          <span class="action-btn delete" onclick="deleteRow(${i})">❌ Delete</span>
+        `;
+        tr.appendChild(tdAction);
+        tbody.appendChild(tr);
+      });
+    }
+
+    function editRow(index) {
+      const row = rows[index];
+      fields.forEach(f => {
+        if (f !== "Date") {
+          document.getElementById(f).value = row[f];
+        }
+      });
+      editIndex = index;
+      document.getElementById("addBtn").innerText = "✅ Update Row";
+    }
+
+    function deleteRow(index) {
+      rows.splice(index, 1);
+      renderTable();
+    }
+
+    function saveExcel() {
+      if (rows.length === 0) {
+        alert("No data to save!");
+        return;
+      }
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Production");
+      XLSX.writeFile(wb, currentFile);
+    }
+  </script>
+</body>
+</html>
